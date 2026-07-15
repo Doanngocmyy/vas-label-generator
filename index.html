@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAS Label Generator — CN / CN Tmall / KR / SG</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>VAS Label Generator</h1>
+  <p class="subtitle">Tạo tem COO (Country of Origin) từ Master Label Data + EAN List — chạy hoàn toàn trong trình duyệt, dữ liệu không gửi lên server nào.</p>
+</header>
+
+<nav class="market-tabs" id="marketTabs">
+  <button class="tab-btn active" data-market="cnRetail">CN Retail</button>
+  <button class="tab-btn" data-market="cnTmall">CN Tmall</button>
+  <button class="tab-btn" data-market="kr">KR</button>
+  <button class="tab-btn" data-market="sg">SG</button>
+</nav>
+
+<main class="layout">
+
+  <section class="panel" id="panel-master">
+    <h2>1. Master Label Data <span class="badge">khoá &amp; tái sử dụng</span></h2>
+    <p class="hint">File Excel master (nhiều sheet OK — bạn chọn đúng sheet ở popup tiếp theo). Lưu trong trình duyệt của bạn, không upload lên server nào.</p>
+
+    <div class="toggle-row" id="masterUpdateToggle">
+      <label><input type="radio" name="masterUpdate" value="no" checked> Không đổi — dùng bản đã khoá</label>
+      <label><input type="radio" name="masterUpdate" value="yes"> Cập nhật master mới</label>
+    </div>
+
+    <div class="file-row" id="masterFileRow">
+      <input type="file" id="masterFileInput" accept=".xlsx,.xls,.xlsm">
+      <button id="masterClearBtn" class="btn-secondary" title="Xoá master đã khoá">Xoá master đã khoá</button>
+    </div>
+    <div id="masterStatus" class="status-box status-empty">Chưa có master data nào được khoá cho mục này.</div>
+  </section>
+
+  <section class="panel" id="panel-filter">
+    <h2>2. EAN / Filter List</h2>
+    <p class="hint">File cần có tối thiểu 2 trong 3 cột: <b>EAN</b>, <b>SKU</b>, <b>CO (Country of Origin)</b>. Upload lại mỗi lần tạo tem.</p>
+    <div class="file-row">
+      <input type="file" id="filterFileInput" accept=".xlsx,.xls,.xlsm,.csv">
+    </div>
+    <div id="filterStatus" class="status-box status-empty">Chưa upload file EAN/filter.</div>
+  </section>
+
+  <section class="panel" id="panel-font">
+    <h2>3. Font chữ <span class="badge">khoá &amp; tái sử dụng</span></h2>
+    <p class="hint">Mặc định dùng Noto Sans SC (mã nguồn mở). Muốn dùng đúng SimHei/SimSun thật, upload file .ttf/.ttc — font sẽ được khoá lại trong trình duyệt, dùng cho mọi lần tạo tem sau này.</p>
+    <div class="toggle-row" id="fontUpdateToggle">
+      <label><input type="radio" name="fontUpdate" value="no" checked> Không đổi — dùng font đã khoá</label>
+      <label><input type="radio" name="fontUpdate" value="yes"> Tải font riêng (SimHei / SimSun...)</label>
+    </div>
+    <div class="file-row" id="fontFileRow">
+      <input type="file" id="fontFileInput" accept=".ttf,.ttc,.otf">
+      <button id="fontClearBtn" class="btn-secondary">Xoá font riêng, quay lại mặc định</button>
+    </div>
+    <div id="fontStatus" class="status-box status-empty">Đang dùng font mặc định: Noto Sans SC.</div>
+  </section>
+
+  <section class="panel" id="panel-options">
+    <h2>4. Tuỳ chọn tem &amp; cỡ chữ</h2>
+    <div id="marketOptions"></div>
+  </section>
+
+  <section class="panel" id="panel-generate">
+    <h2>5. Tạo tem</h2>
+    <button id="generateBtn" class="btn-primary" disabled>Generate labels</button>
+    <div id="genLog" class="log-box"></div>
+    <div id="resultFiles" class="result-files"></div>
+  </section>
+
+</main>
+
+<div id="sheetModalOverlay" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Chọn sheet chính xác của Master Label Data</h3>
+    <p class="hint" id="sheetModalHint">File có nhiều sheet. Hãy chọn sheet chứa dữ liệu tem cần dùng.</p>
+    <div id="sheetList" class="sheet-list"></div>
+    <div class="modal-actions">
+      <button id="sheetModalCancel" class="btn-secondary">Huỷ</button>
+      <button id="sheetModalConfirm" class="btn-primary" disabled>Khoá sheet này &amp; tiếp tục</button>
+    </div>
+  </div>
+</div>
+
+<footer class="footer">
+  <p>Font mặc định: Noto Sans SC (mã nguồn mở, OFL) — có thể thay bằng SimHei/SimSun thật trong <code>fonts/</code>. Xem <code>README.md</code>.</p>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@pdf-lib/fontkit@1.1.1/dist/fontkit.umd.min.js"></script>
+<script src="js/utils.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/pdfkit-labels.js"></script>
+<script src="js/markets/cnRetail.js"></script>
+<script src="js/markets/cnTmall.js"></script>
+<script src="js/markets/kr.js"></script>
+<script src="js/markets/sg.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
