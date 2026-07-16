@@ -52,6 +52,8 @@
     if (!btn) return;
     currentMarketId = btn.dataset.market;
     [...els.tabs.children].forEach(b => b.classList.toggle("active", b === btn));
+    const cnPortsPanel = document.getElementById("panel-cnretail-ports");
+    if (cnPortsPanel) cnPortsPanel.style.display = currentMarketId === "cnRetail" ? "" : "none";
     refreshMasterStatus();
     renderMarketOptions();
     updateGenerateEnabled();
