@@ -174,15 +174,15 @@
   window.VASMarkets.kr = {
     id: "kr",
     label: "KR",
-    defaultSettings: { fontSize: 6, mode: "qty", useEanFilter: false },
+    defaultSettings: { fontSize: 6, mode: "eanList", useEanFilter: false },
     optionFields: [
       { key: "mode", label: "Chế độ", type: "select", options: [
+        { value: "eanList", label: "Theo EAN List (mặc định, KHÔNG cần điền Qty) — 1 SKU = 1 trang = 3 tem" },
         { value: "qty", label: "Theo Qty Label Request (làm tròn lên /3 trang)" },
-        { value: "eanList", label: "Theo EAN List (bắt buộc) — 1 SKU = 1 trang = 3 tem" },
       ] },
       { key: "useEanFilter", label: "Dùng EAN list để lọc/ghi đè CO (chỉ áp dụng ở chế độ Qty)", type: "checkbox" },
       { key: "fontSize", label: "Cỡ chữ (pt)", type: "number", min: 4, max: 10, step: 0.5 },
-    ],
+     ],
     generate,
   };
 })();
