@@ -122,7 +122,7 @@
     for (const bucket of ["CN", "VN", "OTHER"]) {
       const labels = bucketLabels[bucket];
       if (!labels.length) continue;
-      const { pdfDoc, font } = await VASPdf.createDoc();
+      const { pdfDoc, font, boldOffsetPt } = await VASPdf.createDoc("cnRetail");
       for (const label of labels) {
         const page = pdfDoc.addPage([U.mm(100), U.mm(50)]);
         const rows = FIELDS.map(f => ({ key: f, value: label.fields[f] || "" }));
@@ -130,7 +130,7 @@
           VASPdf.drawBorderedKVTable({
             page, font, x: slotX + 1.2, y: 1.2, w: 50 - 2 * 1.2, h: 50 - 2 * 1.2,
             rows, leftColRatio: 0.25, fontSize, lineHeightFactor: 1.0,
-            innerPadX: 0.35, cellPadY: 0.10, borderWidth: 0.28,
+            innerPadX: 0.35, cellPadY: 0.10, borderWidth: 0.28, boldOffsetPt,
           });
         }
       }
