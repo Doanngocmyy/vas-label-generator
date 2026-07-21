@@ -135,7 +135,7 @@
     log(`[INFO] Total label rows: ${records.length}`);
     if (!records.length) throw new Error("Không có dữ liệu để tạo tem (kiểm tra lại Master / EAN list / sheet).");
 
-    const { pdfDoc, font } = await VASPdf.createDoc();
+    const { pdfDoc, font, boldOffsetPt } = await VASPdf.createDoc("kr");
     const PAGE_W = 90, PAGE_H = 40, SLOT_W = 30, SLOT_H = 40, RAW_W = 40, RAW_H = 30;
     let totalPages = 0;
     for (const rec of records) {
@@ -149,7 +149,7 @@
             rawLabelW: RAW_W, rawLabelH: RAW_H, rows: rowsForLabel, rowRatios: ROW_RATIOS,
             leftColRatio: 0.35, fontSize, lineHeightFactor: 1.0,
             outerMarginX: 2.0, outerMarginY: 1.8, innerPadX: 0.35, innerPadY: 0.25,
-            borderWidth: 0.30, innerBorderWidth: 0.25,
+            borderWidth: 0.30, innerBorderWidth: 0.25, boldOffsetPt,
           });
         }
         totalPages++;
