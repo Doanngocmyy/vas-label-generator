@@ -14,11 +14,6 @@
     masterStatus: document.getElementById("masterStatus"),
     filterFileInput: document.getElementById("filterFileInput"),
     filterStatus: document.getElementById("filterStatus"),
-    fontUpdateToggle: document.getElementById("fontUpdateToggle"),
-    fontFileRow: document.getElementById("fontFileRow"),
-    fontFileInput: document.getElementById("fontFileInput"),
-    fontClearBtn: document.getElementById("fontClearBtn"),
-    fontStatus: document.getElementById("fontStatus"),
     marketOptions: document.getElementById("marketOptions"),
     generateBtn: document.getElementById("generateBtn"),
     genLog: document.getElementById("genLog"),
@@ -179,46 +174,79 @@
     setStatus(els.filterStatus, `Đã nạp: "${filterFileName}" (${filterWorkbook.SheetNames.length} sheet).`, "ok");
   }
 
-  // ---------------- Font ----------------
-  els.fontUpdateToggle.addEventListener("change", () => {
-    const val = els.fontUpdateToggle.querySelector('input[name="fontUpdate"]:checked').value;
-    els.fontFileRow.style.display = val === "yes" ? "flex" : "none";
-  });
-  els.fontFileRow.style.display = "none";
+  // ---------------- Font (locked PER MARKET GROUP, mandatory) ----------------
+  // CN Retail + CN Tmall share a "cn" font slot (locked to SimHei Bold), SG +
+  // KR share an "intl" font slot (locked to Calibri). There is no default
+  // fallback font anymore: until a group's font is uploaded & locked here,
+  // Generate stays disabled for markets in that group (see
+  // updateGenerateEnabled()) and VASPdf.createDoc() would throw anyway.
+  const FONT_GROUP_IDS = ["cn", "intl"];
+  const fontLockState = { cn: false, intl: false };
+  const fontEls = {};
+  for (const g of FONT_GROUP_IDS) {
+    fontEls[g] = {
+      toggle: document.getElementById(`fontUpdateToggle-${g}`),
+      fileRow: document.getElementById(`fontFileRow-${g}`),
+      fileInput: document.getElementById(`fontFileInput-${g}`),
+      clearBtn: document.getElementById(`fontClearBtn-${g}`),
+      status: document.getElementById(`fontStatus-${g}`),
+    };
+  }
 
-  els.fontFileInput.addEventListener("change", async () => {
-    const file = els.fontFileInput.files[0];
-    if (!file) return;
+  for (const g of FONT_GROUP_IDS) {
+    const fe = fontEls[g];
+
+    fe.toggle.addEventListener("change", () => {
+      const val = fe.toggle.querySelector(`input[name="fontUpdate-${g}"]:checked`).value;
+      fe.fileRow.style.display = val === "yes" ? "flex" : "none";
+    });
+    fe.fileRow.style.display = "none";
+
+    fe.fileInput.addEventListener("change", async () => {
+      const file = fe.fileInput.files[0];
+      if (!file) return;
+      try {
+        const buf = await file.arrayBuffer();
+        await VASStorage.saveCustomFont(g, file.name, buf);
+        VASPdf.resetFontCache(g);
+        fe.toggle.querySelector('input[value="no"]').checked = true;
+        fe.fileRow.style.display = "none";
+        fe.fileInput.value = "";
+        await refreshFontStatus(g);
+        updateGenerateEnabled();
+      } catch (e) {
+        setStatus(fe.status, `Lỗi lưu font: ${e.message}`, "err");
+      }
+    });
+
+    fe.clearBtn.addEventListener("click", async () => {
+      await VASStorage.clearCustomFont(g);
+      VASPdf.resetFontCache(g);
+      await refreshFontStatus(g);
+      updateGenerateEnabled();
+    });
+  }
+
+  async function refreshFontStatus(groupId) {
+    const fe = fontEls[groupId];
+    const cfg = VASUtils.FONT_GROUPS[groupId];
     try {
-      const buf = await file.arrayBuffer();
-      await VASStorage.saveCustomFont(file.name, buf);
-      VASPdf.resetFontCache();
-      els.fontUpdateToggle.querySelector('input[value="no"]').checked = true;
-      els.fontFileRow.style.display = "none";
-      els.fontFileInput.value = "";
-      await refreshFontStatus();
-    } catch (e) {
-      setStatus(els.fontStatus, `Lỗi lưu font: ${e.message}`, "err");
-    }
-  });
-
-  els.fontClearBtn.addEventListener("click", async () => {
-    await VASStorage.clearCustomFont();
-    VASPdf.resetFontCache();
-    await refreshFontStatus();
-  });
-
-  async function refreshFontStatus() {
-    try {
-      const custom = await VASStorage.getCustomFont();
-      if (custom) {
-        setStatus(els.fontStatus, `Đang dùng font riêng đã khoá: "${custom.name}" (khoá lúc ${new Date(custom.savedAt).toLocaleString()}).`, "ok");
+      const custom = await VASStorage.getCustomFont(groupId);
+      if (custom && custom.bytes) {
+        fontLockState[groupId] = true;
+        setStatus(fe.status, `Đã khoá "${cfg.fontName}": "${custom.name}" (khoá lúc ${new Date(custom.savedAt).toLocaleString()}).`, "ok");
       } else {
-        setStatus(els.fontStatus, "Đang dùng font mặc định: Noto Sans SC.", "empty");
+        fontLockState[groupId] = false;
+        setStatus(fe.status, `Chưa khoá font ${cfg.fontName} — ${cfg.groupLabel} sẽ KHÔNG tạo được tem cho đến khi upload.`, "err");
       }
     } catch (e) {
-      setStatus(els.fontStatus, "Đang dùng font mặc định: Noto Sans SC.", "empty");
+      fontLockState[groupId] = false;
+      setStatus(fe.status, `Chưa khoá font ${cfg.fontName} — ${cfg.groupLabel} sẽ KHÔNG tạo được tem cho đến khi upload.`, "err");
     }
+  }
+
+  async function refreshAllFontStatuses() {
+    for (const g of FONT_GROUP_IDS) await refreshFontStatus(g);
   }
 
   // ---------------- Market options ----------------
@@ -264,7 +292,8 @@
   // ---------------- Generate ----------------
   function updateGenerateEnabled() {
     const locked = VASStorage.getLockedMaster(currentMarketId);
-    els.generateBtn.disabled = !locked;
+    const groupId = VASUtils.fontGroupForMarket(currentMarketId);
+    els.generateBtn.disabled = !locked || !fontLockState[groupId];
   }
 
   els.generateBtn.addEventListener("click", async () => {
@@ -323,9 +352,10 @@
 
   // ---------------- init ----------------
   (async function init() {
+    await VASStorage.migrateLegacyFontIfNeeded();
     refreshMasterStatus();
     renderMarketOptions();
-    await refreshFontStatus();
+    await refreshAllFontStatuses();
     updateGenerateEnabled();
   })();
 })();
