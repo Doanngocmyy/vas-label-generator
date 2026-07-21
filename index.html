@@ -125,17 +125,34 @@
   </section>
 
   <section class="panel" id="panel-font">
-    <h2>3. Font chữ <span class="badge">khoá &amp; tái sử dụng</span></h2>
-    <p class="hint">Mặc định dùng Noto Sans SC (mã nguồn mở). Muốn dùng đúng SimHei/SimSun thật, upload file .ttf/.ttc — font sẽ được khoá lại trong trình duyệt, dùng cho mọi lần tạo tem sau này.</p>
-    <div class="toggle-row" id="fontUpdateToggle">
-      <label><input type="radio" name="fontUpdate" value="no" checked> Không đổi — dùng font đã khoá</label>
-      <label><input type="radio" name="fontUpdate" value="yes"> Tải font riêng (SimHei / SimSun...)</label>
+    <h2>3. Font chữ <span class="badge">khoá cứng theo nhóm</span></h2>
+    <p class="hint">Font bị khoá cứng theo nhóm thị trường, không còn dùng font mặc định nữa — phải upload đúng font thật thì mới tạo được tem. <b>CN Retail / CN Tmall</b> luôn in bằng <b>SimHei Bold</b>. <b>SG / KR</b> luôn in bằng <b>Calibri</b> (tự động in hơi đậm hơn bản gốc, vì font Calibri thường không có sẵn weight Bold thật).</p>
+
+    <div class="font-group" id="fontGroup-cn">
+      <h3>CN Retail / CN Tmall — SimHei Bold <span class="badge">bắt buộc</span></h3>
+      <div class="toggle-row" id="fontUpdateToggle-cn">
+        <label><input type="radio" name="fontUpdate-cn" value="no" checked> Không đổi — dùng font đã khoá</label>
+        <label><input type="radio" name="fontUpdate-cn" value="yes"> Tải font SimHei Bold (.ttf/.ttc/.otf)</label>
+      </div>
+      <div class="file-row" id="fontFileRow-cn">
+        <input type="file" id="fontFileInput-cn" accept=".ttf,.ttc,.otf">
+        <button id="fontClearBtn-cn" class="btn-secondary">Xoá font, yêu cầu upload lại</button>
+      </div>
+      <div id="fontStatus-cn" class="status-box status-empty">Chưa khoá font SimHei Bold — CN Retail / CN Tmall sẽ KHÔNG tạo được tem cho đến khi upload.</div>
     </div>
-    <div class="file-row" id="fontFileRow">
-      <input type="file" id="fontFileInput" accept=".ttf,.ttc,.otf">
-      <button id="fontClearBtn" class="btn-secondary">Xoá font riêng, quay lại mặc định</button>
+
+    <div class="font-group" id="fontGroup-intl">
+      <h3>SG / KR — Calibri <span class="badge">bắt buộc</span></h3>
+      <div class="toggle-row" id="fontUpdateToggle-intl">
+        <label><input type="radio" name="fontUpdate-intl" value="no" checked> Không đổi — dùng font đã khoá</label>
+        <label><input type="radio" name="fontUpdate-intl" value="yes"> Tải font Calibri (.ttf/.ttc/.otf)</label>
+      </div>
+      <div class="file-row" id="fontFileRow-intl">
+        <input type="file" id="fontFileInput-intl" accept=".ttf,.ttc,.otf">
+        <button id="fontClearBtn-intl" class="btn-secondary">Xoá font, yêu cầu upload lại</button>
+      </div>
+      <div id="fontStatus-intl" class="status-box status-empty">Chưa khoá font Calibri — SG / KR sẽ KHÔNG tạo được tem cho đến khi upload.</div>
     </div>
-    <div id="fontStatus" class="status-box status-empty">Đang dùng font mặc định: Noto Sans SC.</div>
   </section>
 
   <section class="panel" id="panel-options">
@@ -165,7 +182,7 @@
 </div>
 
 <footer class="footer">
-  <p>Font mặc định: Noto Sans SC (mã nguồn mở, OFL) — có thể thay bằng SimHei/SimSun thật trong <code>fonts/</code>. Xem <code>README.md</code>.</p>
+  <p>Font khoá cứng theo nhóm thị trường — CN Retail/CN Tmall: SimHei Bold, SG/KR: Calibri. Không có font mặc định nữa; upload font thật ở mục 3 trước khi tạo tem. Xem <code>README.md</code>.</p>
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
