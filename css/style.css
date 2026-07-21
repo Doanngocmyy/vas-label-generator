@@ -138,6 +138,14 @@ input[type="file"] {
 .status-warn { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
 .status-err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 
+.font-group {
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+.font-group:first-of-type { border-top: none; padding-top: 0; }
+.font-group h3 { margin: 0 0 6px; font-size: 13.5px; }
+
+
 #marketOptions label {
   display: block;
   font-size: 13px;
