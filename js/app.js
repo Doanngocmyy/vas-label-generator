@@ -50,6 +50,7 @@
     const cnPortsPanel = document.getElementById("panel-cnretail-ports");
     if (cnPortsPanel) cnPortsPanel.style.display = currentMarketId === "cnRetail" ? "" : "none";
     refreshMasterStatus();
+    updateFontGroupVisibility();
     renderMarketOptions();
     updateGenerateEnabled();
     els.resultFiles.innerHTML = "";
@@ -249,6 +250,17 @@
     for (const g of FONT_GROUP_IDS) await refreshFontStatus(g);
   }
 
+  const fontGroupPanelEls = {
+    cn: document.getElementById("fontGroup-cn"),
+    intl: document.getElementById("fontGroup-intl"),
+  };
+  function updateFontGroupVisibility() {
+    const activeGroup = VASUtils.fontGroupForMarket(currentMarketId);
+    for (const g of FONT_GROUP_IDS) {
+      if (fontGroupPanelEls[g]) fontGroupPanelEls[g].style.display = g === activeGroup ? "" : "none";
+    }
+  }
+
   // ---------------- Market options ----------------
   function renderMarketOptions() {
     const market = currentMarket();
@@ -354,6 +366,7 @@
   (async function init() {
     await VASStorage.migrateLegacyFontIfNeeded();
     refreshMasterStatus();
+    updateFontGroupVisibility();
     renderMarketOptions();
     await refreshAllFontStatuses();
     updateGenerateEnabled();
