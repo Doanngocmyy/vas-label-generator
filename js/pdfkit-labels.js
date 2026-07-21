@@ -6,41 +6,71 @@ const VASPdf = (() => {
   const { PDFDocument, rgb, degrees } = PDFLib;
   const mm = VASUtils.mm;
 
-  let cachedFontBytes = null;
-  let cachedFontLabel = null;
-  async function loadFontBytes() {
-    if (cachedFontBytes) return cachedFontBytes;
-    // 1) A user-uploaded custom font (SimHei/SimSun...) always wins if locked.
-    try {
-      const custom = await VASStorage.getCustomFont();
-      if (custom && custom.bytes) {
-        cachedFontBytes = custom.bytes;
-        cachedFontLabel = custom.name || "custom";
-        return cachedFontBytes;
-      }
-    } catch (e) { /* IndexedDB unavailable, fall through to default */ }
-    // 2) Bundled default (Noto Sans SC, open license, trimmed to GB2312 +
-    // Latin/Vietnamese + currency symbols, layout tables stripped).
-    const res = await fetch("fonts/default-cjk.ttf");
-    if (!res.ok) throw new Error("Không tải được font mặc định fonts/default-cjk.ttf");
-    cachedFontBytes = await res.arrayBuffer();
-    cachedFontLabel = "Noto Sans SC (default)";
-    return cachedFontBytes;
-  }
-  function resetFontCache() { cachedFontBytes = null; cachedFontLabel = null; }
-  function currentFontLabel() { return cachedFontLabel; }
+  // Fonts are locked PER MARKET GROUP (see VASUtils.FONT_GROUPS): CN Retail
+  // + CN Tmall always use the locked "SimHei Bold" font, SG + KR always use
+  // the locked "Calibri" font. There is NO fallback to a bundled default
+  // font anymore — if a group's font hasn't been uploaded & locked in panel
+  // 3, createDoc() throws instead of silently substituting something else.
+  // app.js also hard-disables the Generate button until the relevant
+  // group's font is locked, so this is defense-in-depth.
+  const cachedFonts = {}; // groupId -> { bytes, label }
 
-  async function createDoc() {
+  async function loadFontBytes(groupId) {
+    if (cachedFonts[groupId]) return cachedFonts[groupId];
+    const groupCfg = VASUtils.FONT_GROUPS[groupId];
+    let custom = null;
+    try {
+      custom = await VASStorage.getCustomFont(groupId);
+    } catch (e) { /* IndexedDB unavailable */ }
+    if (!custom || !custom.bytes) {
+      throw new Error(
+        `Font "${groupCfg.fontName}" cho nhóm ${groupCfg.groupLabel} chưa được khoá. ` +
+        `Vào mục 3 (Font chữ) để upload & khoá font trước khi tạo tem.`
+      );
+    }
+    cachedFonts[groupId] = { bytes: custom.bytes, label: custom.name || groupCfg.fontName };
+    return cachedFonts[groupId];
+  }
+  function resetFontCache(groupId) {
+    if (groupId) delete cachedFonts[groupId];
+    else for (const k of Object.keys(cachedFonts)) delete cachedFonts[k];
+  }
+  function currentFontLabel(groupId) { return cachedFonts[groupId]?.label || null; }
+
+  async function createDoc(marketId) {
+    const groupId = VASUtils.fontGroupForMarket(marketId);
+    const groupCfg = VASUtils.FONT_GROUPS[groupId];
     const pdfDoc = await PDFDocument.create();
     pdfDoc.registerFontkit(fontkit);
-    const fontBytes = await loadFontBytes();
+    const { bytes: fontBytes } = await loadFontBytes(groupId);
     // IMPORTANT: subset:true corrupts glyphs with large CJK fonts under the
     // pdf-lib/fontkit combo used here (verified experimentally: characters
     // silently drop or overlap once more than a couple of glyphs get reused
     // across multiple drawText calls). We embed the full font instead —
     // costs roughly 1-2MB per output PDF but renders correctly every time.
     const font = await pdfDoc.embedFont(fontBytes, { subset: false });
-    return { pdfDoc, font };
+    // boldOffsetPt drives the faux-bold redraw-with-offset technique below —
+    // CN group gets the full "Bold" weight, SG/KR gets a slight bold.
+    return { pdfDoc, font, boldOffsetPt: groupCfg.boldOffsetPt, fontGroupId: groupId };
+  }
+
+  // ---- faux-bold text: real bold weight isn't guaranteed to exist in the
+  // uploaded font file, so we thicken strokes by redrawing the same glyphs
+  // with a tiny rotation-aware offset (classic "poor man's bold"). Used for
+  // every drawText call across the label drawers below so CN labels always
+  // render fully bold and SG/KR labels render slightly bold, matching the
+  // locked font-group config.
+  function drawBoldText(page, text, x, y, size, font, boldOffsetPt, rotate) {
+    const base = { x, y, size, font, color: rgb(0, 0, 0) };
+    if (rotate) base.rotate = rotate;
+    page.drawText(text, base);
+    if (boldOffsetPt > 0) {
+      const angleDeg = rotate ? rotate.angle : 0;
+      const angleRad = (angleDeg * Math.PI) / 180;
+      const dx = Math.cos(angleRad) * boldOffsetPt;
+      const dy = Math.sin(angleRad) * boldOffsetPt;
+      page.drawText(text, { ...base, x: x + dx, y: y + dy });
+    }
   }
 
   // ---- generic wrap using a pdf-lib font -------------------------------
@@ -60,7 +90,7 @@ const VASPdf = (() => {
     const {
       page, font, x, y, w, h, rows,
       leftColRatio = 0.25, fontSize = 6, lineHeightFactor = 1.0,
-      innerPadX = 0.35, cellPadY = 0.10, borderWidth = 0.28,
+      innerPadX = 0.35, cellPadY = 0.10, borderWidth = 0.28, boldOffsetPt = 0,
     } = opts;
 
     const leftW = w * leftColRatio;
@@ -93,17 +123,17 @@ const VASPdf = (() => {
       if (idx < measured.length - 1) {
         page.drawLine({ start: { x: tableX, y: rowBottom }, end: { x: tableX + tableW, y: rowBottom }, thickness: borderWidth, color: rgb(0, 0, 0) });
       }
-      drawCellLines(page, font, row.keyLines, fontSize, lineHeight, tableX, rowBottom, mm(leftW), rowHpt, mm(innerPadX), mm(cellPadY));
-      drawCellLines(page, font, row.valueLines, fontSize, lineHeight, splitX, rowBottom, tableW - mm(leftW), rowHpt, mm(innerPadX), mm(cellPadY));
+      drawCellLines(page, font, row.keyLines, fontSize, lineHeight, tableX, rowBottom, mm(leftW), rowHpt, mm(innerPadX), mm(cellPadY), boldOffsetPt);
+      drawCellLines(page, font, row.valueLines, fontSize, lineHeight, splitX, rowBottom, tableW - mm(leftW), rowHpt, mm(innerPadX), mm(cellPadY), boldOffsetPt);
       currentTop = rowBottom;
     });
   }
 
-  function drawCellLines(page, font, lines, fontSize, lineHeight, x0, y0, w0, h0, padX, padY) {
+  function drawCellLines(page, font, lines, fontSize, lineHeight, x0, y0, w0, h0, padX, padY, boldOffsetPt = 0) {
     let yy = y0 + h0 - padY - fontSize;
     for (const line of lines) {
       if (yy < y0) break;
-      page.drawText(line, { x: x0 + padX, y: yy, size: fontSize, font, color: rgb(0, 0, 0) });
+      drawBoldText(page, line, x0 + padX, yy, fontSize, font, boldOffsetPt);
       yy -= lineHeight;
     }
   }
@@ -125,7 +155,7 @@ const VASPdf = (() => {
       rawLabelW, rawLabelH, rows, rowRatios,
       leftColRatio = 0.35, fontSize = 6, lineHeightFactor = 1.0,
       outerMarginX = 2.0, outerMarginY = 1.8, innerPadX = 0.35, innerPadY = 0.25,
-      borderWidth = 0.30, innerBorderWidth = 0.25,
+      borderWidth = 0.30, innerBorderWidth = 0.25, boldOffsetPt = 0,
     } = opts;
 
     // Pivot = translate(slotX + slotW, slotY) then rotate(90), matches Python.
@@ -157,8 +187,8 @@ const VASPdf = (() => {
         const l2 = P(tableLX + tableW, rowBottomLocal);
         page.drawLine({ start: l1, end: l2, thickness: innerBorderWidth, color: rgb(0, 0, 0) });
       }
-      drawRotatedWrappedCell(page, font, P, key, fontSize, lineHeight, tableLX, rowBottomLocal, leftW, rowH, innerPadX, innerPadY);
-      drawRotatedWrappedCell(page, font, P, value, fontSize, lineHeight, tableLX + leftW, rowBottomLocal, rightW, rowH, innerPadX, innerPadY);
+      drawRotatedWrappedCell(page, font, P, key, fontSize, lineHeight, tableLX, rowBottomLocal, leftW, rowH, innerPadX, innerPadY, boldOffsetPt);
+      drawRotatedWrappedCell(page, font, P, value, fontSize, lineHeight, tableLX + leftW, rowBottomLocal, rightW, rowH, innerPadX, innerPadY, boldOffsetPt);
       currentTopLocal = rowBottomLocal;
     });
   }
@@ -172,7 +202,7 @@ const VASPdf = (() => {
     page.drawLine({ start: p4, end: p1, ...opt });
   }
 
-  function drawRotatedWrappedCell(page, font, P, text, fontSize, lineHeight, lx, ly, w, h, padX, padY) {
+  function drawRotatedWrappedCell(page, font, P, text, fontSize, lineHeight, lx, ly, w, h, padX, padY, boldOffsetPt = 0) {
     const maxWidthPt = mm(w) - 2 * mm(padX);
     const lines = wrapText(text, font, fontSize, maxWidthPt);
     const maxLines = Math.max(1, Math.floor((mm(h) - 2 * mm(padY)) / lineHeight));
@@ -182,7 +212,7 @@ const VASPdf = (() => {
     let yLocalMm = ly + h / 2 + (totalTextH / (72 / 25.4)) / 2 - fontSize / (72 / 25.4);
     for (const line of shown) {
       const pt = P(lx + padX, yLocalMm);
-      page.drawText(line, { x: pt.x, y: pt.y, size: fontSize, font, color: rgb(0, 0, 0), rotate: degrees(90) });
+      drawBoldText(page, line, pt.x, pt.y, fontSize, font, boldOffsetPt, degrees(90));
       yLocalMm -= lineHeight / (72 / 25.4);
     }
   }
@@ -197,7 +227,7 @@ const VASPdf = (() => {
       page, font, slotX, slotY, slotW, slotH,
       headers, values, colRatios, headerH,
       outerMarginX = 1.35, outerMarginY = 1.35,
-      fontSize = 6, innerPadX = 0.30, innerPadY = 0.30, borderWidth = 0.25,
+      fontSize = 6, innerPadX = 0.30, innerPadY = 0.30, borderWidth = 0.25, boldOffsetPt = 0,
     } = opts;
 
     const tableX = slotX + outerMarginX;
@@ -218,14 +248,14 @@ const VASPdf = (() => {
     }
 
     for (let i = 0; i < headers.length; i++) {
-      drawRotatedCellInPlace(page, font, headers[i], fontSize, colXs[i], tableY, colWs[i], headerH, innerPadX, innerPadY);
-      drawRotatedCellInPlace(page, font, values[i], fontSize, colXs[i], headerTopY, colWs[i], valueH, innerPadX, innerPadY);
+      drawRotatedCellInPlace(page, font, headers[i], fontSize, colXs[i], tableY, colWs[i], headerH, innerPadX, innerPadY, boldOffsetPt);
+      drawRotatedCellInPlace(page, font, values[i], fontSize, colXs[i], headerTopY, colWs[i], valueH, innerPadX, innerPadY, boldOffsetPt);
     }
   }
 
   // Rotates text 90 deg CCW in place around each cell's own center, matching
   // draw_rotated_value() in the SG script.
-  function drawRotatedCellInPlace(page, font, text, fontSize, x, y, w, h, padX, padY) {
+  function drawRotatedCellInPlace(page, font, text, fontSize, x, y, w, h, padX, padY, boldOffsetPt = 0) {
     const textAreaW = h - 2 * padY; // after rotation, available width = original height
     const textAreaH = w - 2 * padX;
     const lineHeight = fontSize / (72 / 25.4);
@@ -241,7 +271,7 @@ const VASPdf = (() => {
       // Local point (startXLocal, startYLocal) rotated 90 CCW around (cx,cy).
       const wx = cx - startYLocal;
       const wy = cy + startXLocal;
-      page.drawText(line, { x: wx, y: wy, size: fontSize, font, color: rgb(0, 0, 0), rotate: degrees(90) });
+      drawBoldText(page, line, wx, wy, fontSize, font, boldOffsetPt, degrees(90));
       startYLocal -= mm(lineHeight);
     }
   }
