@@ -115,7 +115,7 @@
     const files = [];
     const PAGE_W = 90, PAGE_H = 40, SLOT_W = 30, SLOT_H = 40;
     for (const [suffix, recs] of byCo.entries()) {
-      const { pdfDoc, font } = await VASPdf.createDoc();
+      const { pdfDoc, font, boldOffsetPt } = await VASPdf.createDoc("sg");
       for (const rec of recs) {
         const page = pdfDoc.addPage([U.mm(PAGE_W), U.mm(PAGE_H)]);
         const headers = ["EAN", "Item\nCode", "Item\nDesc.", "RRP\n(SGD)", "CO"];
@@ -128,7 +128,7 @@
           VASPdf.drawSGLabel({
             page, font, slotX: i * SLOT_W, slotY: 0, slotW: SLOT_W, slotH: SLOT_H,
             headers, values, colRatios: COL_RATIOS, headerH: HEADER_H,
-            outerMarginX: 1.35, outerMarginY: 1.35, fontSize, innerPadX: 0.30, innerPadY: 0.30, borderWidth: 0.25,
+            outerMarginX: 1.35, outerMarginY: 1.35, fontSize, innerPadX: 0.30, innerPadY: 0.30, borderWidth: 0.25, boldOffsetPt,
           });
         }
       }
