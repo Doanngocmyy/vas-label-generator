@@ -27,17 +27,24 @@ vas-label-site/
 
 1. **Master Label Data**: upload file Excel, chọn đúng sheet ở popup hiện ra (vì file thường có nhiều sheet). Sau khi chọn, master được "khoá" — lưu trong trình duyệt (localStorage), lần sau không cần upload lại, chỉ cần chọn "Không đổi — dùng bản đã khoá".
 2. **EAN / Filter List**: upload mỗi lần tạo tem (không lưu lại, vì đây là danh sách request thay đổi liên tục).
-3. **Font**: mặc định dùng Noto Sans SC (font mở, không lo bản quyền). Muốn dùng SimHei/SimSun thật, upload file `.ttf`/`.ttc` ở panel Font — font sẽ được khoá lại (IndexedDB), dùng cho mọi lần tạo tem sau.
+3. **Font**: khoá cứng theo NHÓM thị trường, không còn font mặc định — **CN Retail / CN Tmall** luôn dùng font **SimHei Bold** đã khoá, **SG / KR** luôn dùng font **Calibri** đã khoá (áp faux-bold nhẹ tự động, vì Calibri thường không có sẵn weight Bold thật trong file .ttf). Mỗi nhóm có 1 ô upload `.ttf`/`.ttc`/`.otf` riêng ở panel Font, lưu lại trong trình duyệt (IndexedDB). **Generate labels bị khoá (disabled) cho market nào mà nhóm font của nó chưa được upload & khoá** — không thể lỡ tay tạo tem bằng font sai/font mặc định nữa.
 4. **Cỡ chữ**: chỉnh được theo từng loại tem (mặc định 6pt, giống bản gốc).
 5. Nhấn **Generate labels** → tải các file PDF (chia CN/VN/OTHER hoặc CN/VN tuỳ luồng) + 1 file CSV tổng hợp.
 
 ## Về font
 
-Font mặc định (`fonts/default-cjk.ttf`) là **Noto Sans SC** (SIL Open Font License — dùng/phân phối lại tự do), đã được cắt gọn còn ~16,000 glyph: chữ Latin, chữ Hán giản thể (GB2312 đầy đủ), chữ Hán phồn thể phổ biến (Big5), tiếng Việt có dấu, ký hiệu tiền tệ (¥ ￥ ₩). File nặng khoảng 5MB.
+Font bị **khoá cứng theo nhóm thị trường** (`js/utils.js` → `VASUtils.FONT_GROUPS`), không có font mặc định bundle sẵn nữa:
+
+- **CN Retail + CN Tmall** ("cn" group) → phải upload & khoá font **SimHei Bold**.
+- **SG + KR** ("intl" group) → phải upload & khoá font **Calibri**. Nếu file Calibri bạn có chỉ là weight Regular (không có Bold thật), app tự vẽ đè chữ lệch nhẹ (faux-bold ~0.14pt) để chữ trông hơi đậm hơn, theo yêu cầu "ưu tiên hơi đậm". CN group cũng dùng kỹ thuật này nhưng với offset lớn hơn (~0.30pt) để đảm bảo luôn đậm dù file SimHei bạn upload có đúng là weight Bold hay không.
+
+Mỗi nhóm được khoá độc lập trong IndexedDB (key `customFont.cn` / `customFont.intl`). Cho tới khi upload, panel Font hiển thị trạng thái lỗi màu đỏ và nút **Generate labels** bị disable cho các market thuộc nhóm đó — không có đường lùi về font mặc định.
 
 **Quan trọng — đã tắt tính năng "subset" của pdf-lib**: pdf-lib (qua fontkit) có lỗi làm hỏng/rớt chữ khi bật `subset:true` với font tiếng Trung lớn (đã kiểm chứng bằng cách render thử nhiều lần). Vì vậy code nhúng nguyên font vào mỗi PDF — file PDF xuất ra sẽ nặng thêm khoảng 3-4MB. Đây là đánh đổi cần thiết để chữ hiển thị đúng 100%. Nếu sau này muốn tối ưu, cần một thư viện PDF khác có subset CJK ổn định hơn.
 
-SimHei/SimSun là font Windows/Microsoft — không được phép tự phân phối lại trong repo public. Muốn dùng font thật, upload trực tiếp trong app (panel Font) — không cần sửa code hay đụng vào repo.
+SimHei và Calibri đều là font Windows/Microsoft — không được phép tự phân phối lại trong repo public. Upload trực tiếp trong app (panel Font, 2 ô riêng cho CN và SG/KR) — không cần sửa code hay đụng vào repo. File `fonts/default-cjk.ttf` (Noto Sans SC) vẫn còn trong repo nhưng không còn được code dùng tới — giữ lại chỉ để tham khảo, có thể xoá an toàn nếu muốn dọn repo.
+
+**Nâng cấp từ bản cũ (1 font dùng chung)**: nếu trình duyệt của bạn đã từng khoá 1 font chung theo cơ chế cũ, lần load đầu tiên sau khi cập nhật app sẽ tự copy font đó sang ô "CN" (gần với mục đích SimHei/SimSun ban đầu nhất). Ô "SG/KR — Calibri" vẫn cần upload mới vì font cũ gần như chắc chắn không phải Calibri.
 
 ## Publish lên GitHub Pages
 
