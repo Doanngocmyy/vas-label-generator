@@ -52,7 +52,7 @@ const VASUtils = (() => {
 
   // Strict alnum-only header normalizer (used by SG-style matching)
   function normalizeHeaderStrict(s) {
-    s = cleanText(s).toLowerCase().replace(/ /g, " ");
+    s = cleanText(s).toLowerCase().replace(/ /g, " ");
     s = s.replace(/[^a-z0-9一-鿿]+/g, " ");
     s = s.replace(/\s+/g, " ").trim();
     return s;
@@ -300,6 +300,29 @@ const VASUtils = (() => {
     return lines.length ? lines : [""];
   }
 
+  // ---- Market -> locked font-group mapping ------------------------------
+  // CN Retail + CN Tmall always render with the locked "SimHei Bold" font;
+  // KR + SG always render with the locked "Calibri" font (faux slight-bold
+  // applied). No market ever falls back to a default bundled font anymore —
+  // see panel 3 in index.html / storage.js / pdfkit-labels.js.
+  const FONT_GROUPS = {
+    cn: {
+      id: "cn",
+      groupLabel: "CN Retail / CN Tmall",
+      fontName: "SimHei Bold",
+      boldOffsetPt: 0.30, // full faux-bold stroke thickening
+    },
+    intl: {
+      id: "intl",
+      groupLabel: "SG / KR",
+      fontName: "Calibri",
+      boldOffsetPt: 0.14, // slight faux-bold, per yêu cầu "prefer slight bold"
+    },
+  };
+  function fontGroupForMarket(marketId) {
+    return (marketId === "cnRetail" || marketId === "cnTmall") ? "cn" : "intl";
+  }
+
   function containsCJK(text) {
     return /[一-鿿]/.test(cleanText(text));
   }
@@ -327,5 +350,6 @@ const VASUtils = (() => {
     formatCNYPrice, formatRRP, findColByAlias, uniqueKeepOrder,
     readWorkbookFromFile, sheetToRows, detectHeaderRow,
     wrapByWidth, containsCJK, mm, downloadBlob,
+    FONT_GROUPS, fontGroupForMarket,
   };
 })();
